@@ -70,7 +70,7 @@ async function fetchContributions(username: string): Promise<ContributionsWithUs
 
 
     // Get ALL years of contributions data from account creation to current year
-    const currentYear = new Date().getFullYear()
+    const currentYear = new Date().getUTCFullYear()
     const allContributions: ContributionDay[] = []
     let totalContributions = 0
 
@@ -78,8 +78,8 @@ async function fetchContributions(username: string): Promise<ContributionsWithUs
     for (let year = accountCreationYear; year <= currentYear; year++) {
 
 
-      const fromDate = new Date(year, 0, 1) // January 1st of the year
-      const toDate = new Date(year, 11, 31, 23, 59, 59) // December 31st of the year
+      const fromDate = new Date(Date.UTC(year, 0, 1)) // January 1st of the year (UTC)
+      const toDate = new Date(Date.UTC(year, 11, 31, 23, 59, 59)) // December 31st of the year (UTC)
 
       const query = `
         query($username: String!, $from: DateTime!, $to: DateTime!) {
@@ -352,37 +352,61 @@ async function fetchContributionsFromHtml(username: string): Promise<Contributio
     }
   }
 
-function calculateCurrentStreak(contributions: ContributionDay[]): number {
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
+function toUtcMidnight(dateString: string): Date {
+  return new Date(dateString + 'T00:00:00Z')
+}
 
+function daysDiffUtc(a: string, b: string): number {
+  const dateA = toUtcMidnight(a)
+  const dateB = toUtcMidnight(b)
+  return Math.floor((dateA.getTime() - dateB.getTime()) / (1000 * 60 * 60 * 24))
+}
+
+function calculateCurrentStreak(contributions: ContributionDay[]): number {
   const sortedContributions = contributions
     .filter(day => day.count > 0)
-    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    .sort((a, b) => b.date.localeCompare(a.date))
 
   if (sortedContributions.length === 0) return 0
 
-  // Get the most recent contribution date
-  const mostRecentContribution = sortedContributions[0]
-  const mostRecentDate = new Date(mostRecentContribution.date)
-  mostRecentDate.setHours(0, 0, 0, 0)
+  const now = new Date()
+  const istanbulOffset = 3 * 60 * 60 * 1000
+  const istanbulTime = new Date(now.getTime() + istanbulOffset)
+  const istanbulYear = istanbulTime.getUTCFullYear()
+  const istanbulMonth = String(istanbulTime.getUTCMonth() + 1).padStart(2, '0')
+  const istanbulDay = String(istanbulTime.getUTCDate()).padStart(2, '0')
+  const actualToday = `${istanbulYear}-${istanbulMonth}-${istanbulDay}`
 
-  // Calculate days difference between today and most recent contribution
-  const daysDiff = Math.floor((today.getTime() - mostRecentDate.getTime()) / (1000 * 60 * 60 * 24))
+  const latestDate = sortedContributions[0].date
+
+  const daysFromLatestToActual = daysDiffUtc(actualToday, latestDate)
+
+  let todayString: string
+  const isDateReasonable = daysFromLatestToActual <= 1 && daysFromLatestToActual >= -1
+
+  if (isDateReasonable) {
+    todayString = actualToday
+  } else {
+    const today = new Date(latestDate)
+    today.setDate(today.getDate() + 1)
+    todayString = today.toISOString().slice(0, 10)
+  }
+
+  const mostRecentContribution = sortedContributions[0]
+
+  const daysDiff = daysDiffUtc(todayString, mostRecentContribution.date)
 
   if (daysDiff === 0) {
-    // Most recent contribution is today - calculate normal streak
     let streak = 1
-    let checkDate = new Date(today)
-    checkDate.setDate(checkDate.getDate() - 1)
+    let checkDate = toUtcMidnight(todayString)
+    checkDate.setUTCDate(checkDate.getUTCDate() - 1)
+    let checkDateString = checkDate.toISOString().slice(0, 10)
 
     for (let i = 1; i < sortedContributions.length; i++) {
-      const contributionDate = new Date(sortedContributions[i].date)
-      contributionDate.setHours(0, 0, 0, 0)
-
-      if (contributionDate.getTime() === checkDate.getTime()) {
+      if (sortedContributions[i].date === checkDateString) {
         streak++
-        checkDate.setDate(checkDate.getDate() - 1)
+        checkDate.setUTCDate(checkDate.getUTCDate() - 1)
+        checkDateString = checkDate.toISOString().slice(0, 10)
       } else {
         break
       }
@@ -390,19 +414,16 @@ function calculateCurrentStreak(contributions: ContributionDay[]): number {
     return streak
 
   } else if (daysDiff === 1) {
-    // Most recent contribution is yesterday - streak continues today
-    // Calculate the full streak including yesterday
-    let streak = 1 // Start with yesterday
-    let checkDate = new Date(mostRecentDate)
-    checkDate.setDate(checkDate.getDate() - 1)
+    let streak = 1
+    let checkDate = toUtcMidnight(mostRecentContribution.date)
+    checkDate.setUTCDate(checkDate.getUTCDate() - 1)
+    let checkDateString = checkDate.toISOString().slice(0, 10)
 
     for (let i = 1; i < sortedContributions.length; i++) {
-      const contributionDate = new Date(sortedContributions[i].date)
-      contributionDate.setHours(0, 0, 0, 0)
-
-      if (contributionDate.getTime() === checkDate.getTime()) {
+      if (sortedContributions[i].date === checkDateString) {
         streak++
-        checkDate.setDate(checkDate.getDate() - 1)
+        checkDate.setUTCDate(checkDate.getUTCDate() - 1)
+        checkDateString = checkDate.toISOString().slice(0, 10)
       } else {
         break
       }
@@ -418,7 +439,7 @@ function calculateCurrentStreak(contributions: ContributionDay[]): number {
 function calculateLongestStreak(contributions: ContributionDay[]): number {
   const sortedContributions = contributions
     .filter(day => day.count > 0)
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    .sort((a, b) => a.date.localeCompare(b.date))
 
   if (sortedContributions.length === 0) return 0
 
@@ -426,10 +447,7 @@ function calculateLongestStreak(contributions: ContributionDay[]): number {
   let currentStreak = 1
 
   for (let i = 1; i < sortedContributions.length; i++) {
-    const prevDate = new Date(sortedContributions[i - 1].date)
-    const currentDate = new Date(sortedContributions[i].date)
-
-    const dayDiff = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24))
+    const dayDiff = daysDiffUtc(sortedContributions[i].date, sortedContributions[i - 1].date)
 
     if (dayDiff === 1) {
       currentStreak++
