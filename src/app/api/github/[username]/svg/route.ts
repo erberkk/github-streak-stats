@@ -627,15 +627,9 @@ function generateSVG(stats: GitHubStats): string {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
   }
 
-  // Ana background efekti - mevcut component'teki gibi
+  // Ana background: sabit koyu renk (kartların gradientlerinden bağımsız)
   const mainBackground = `
-    <defs>
-      <linearGradient id="mainBgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" stop-color="#0d1117"/>
-        <stop offset="100%" stop-color="#161b22"/>
-      </linearGradient>
-    </defs>
-    <rect width="100%" height="100%" fill="url(#mainBgGradient)"/>
+    <rect width="100%" height="100%" fill="#0d1117"/>
   `
 
   function getCurrentStreakDates() {
