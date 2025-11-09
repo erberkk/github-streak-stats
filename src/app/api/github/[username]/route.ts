@@ -369,71 +369,45 @@ function calculateCurrentStreak(contributions: ContributionDay[]): number {
 
   if (sortedContributions.length === 0) return 0
 
+  // Get today's date in UTC (GitHub uses UTC for dates)
   const now = new Date()
-  const istanbulOffset = 3 * 60 * 60 * 1000
-  const istanbulTime = new Date(now.getTime() + istanbulOffset)
-  const istanbulYear = istanbulTime.getUTCFullYear()
-  const istanbulMonth = String(istanbulTime.getUTCMonth() + 1).padStart(2, '0')
-  const istanbulDay = String(istanbulTime.getUTCDate()).padStart(2, '0')
-  const actualToday = `${istanbulYear}-${istanbulMonth}-${istanbulDay}`
-
-  const latestDate = sortedContributions[0].date
-
-  const daysFromLatestToActual = daysDiffUtc(actualToday, latestDate)
-
-  let todayString: string
-  const isDateReasonable = daysFromLatestToActual <= 1 && daysFromLatestToActual >= -1
-
-  if (isDateReasonable) {
-    todayString = actualToday
-  } else {
-    const today = new Date(latestDate)
-    today.setDate(today.getDate() + 1)
-    todayString = today.toISOString().slice(0, 10)
-  }
+  const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+  const todayString = todayUTC.toISOString().slice(0, 10)
 
   const mostRecentContribution = sortedContributions[0]
+  const mostRecentDate = mostRecentContribution.date
 
-  const daysDiff = daysDiffUtc(todayString, mostRecentContribution.date)
+  // Calculate days difference between today and most recent contribution
+  const daysDiff = daysDiffUtc(todayString, mostRecentDate)
 
-  if (daysDiff === 0) {
-    let streak = 1
-    let checkDate = toUtcMidnight(todayString)
-    checkDate.setUTCDate(checkDate.getUTCDate() - 1)
-    let checkDateString = checkDate.toISOString().slice(0, 10)
-
-    for (let i = 1; i < sortedContributions.length; i++) {
-      if (sortedContributions[i].date === checkDateString) {
-        streak++
-        checkDate.setUTCDate(checkDate.getUTCDate() - 1)
-        checkDateString = checkDate.toISOString().slice(0, 10)
-      } else {
-        break
-      }
-    }
-    return streak
-
-  } else if (daysDiff === 1) {
-    let streak = 1
-    let checkDate = toUtcMidnight(mostRecentContribution.date)
-    checkDate.setUTCDate(checkDate.getUTCDate() - 1)
-    let checkDateString = checkDate.toISOString().slice(0, 10)
-
-    for (let i = 1; i < sortedContributions.length; i++) {
-      if (sortedContributions[i].date === checkDateString) {
-        streak++
-        checkDate.setUTCDate(checkDate.getUTCDate() - 1)
-        checkDateString = checkDate.toISOString().slice(0, 10)
-      } else {
-        break
-      }
-    }
-    return streak
-
-  } else {
-    // Gap of 2+ days - streak is broken
+  // If the most recent contribution is more than 1 day ago, streak is broken
+  if (daysDiff > 1) {
     return 0
   }
+
+  // Create a set of all contribution dates for quick lookup
+  const contributionDates = new Set(sortedContributions.map(day => day.date))
+
+  // Start counting from the most recent contribution date
+  let streak = 1
+  let checkDate = toUtcMidnight(mostRecentDate)
+  checkDate.setUTCDate(checkDate.getUTCDate() - 1)
+
+  // Count backwards checking for consecutive days
+  // We continue as long as we find contributions on consecutive days
+  while (true) {
+    const checkDateString = checkDate.toISOString().slice(0, 10)
+    
+    if (contributionDates.has(checkDateString)) {
+      streak++
+      checkDate.setUTCDate(checkDate.getUTCDate() - 1)
+    } else {
+      // Gap found - streak is broken
+      break
+    }
+  }
+
+  return streak
 }
 
 function calculateLongestStreak(contributions: ContributionDay[]): number {
@@ -480,6 +454,13 @@ export async function GET(
 
     // Calculate streaks from ALL contribution days
     const allContributionDays = contributions.weeks[0].contributionDays
+    
+    // Calculate total contributions from actual contribution days (more accurate than summing API totals)
+    const totalContributions = allContributionDays.reduce((sum, day) => sum + (day.count || 0), 0)
+    
+    // Update contributions object with calculated total
+    contributions.totalContributions = totalContributions
+    
     const currentStreak = calculateCurrentStreak(allContributionDays)
     const longestStreak = calculateLongestStreak(allContributionDays)
     const totalDays = allContributionDays.filter(day => day.count > 0).length

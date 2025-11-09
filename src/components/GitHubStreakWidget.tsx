@@ -582,7 +582,7 @@ export default function GitHubStreakWidget({ username: propUsername }: GitHubStr
   }
 
   const getCurrentStreakDates = () => {
-    if (!stats?.contributions.weeks) return null
+    if (!stats?.contributions.weeks || !stats?.streak.current || stats.streak.current === 0) return null
 
     const allContributions: { date: string, count: number }[] = []
     stats.contributions.weeks.forEach((week) => {
@@ -596,25 +596,64 @@ export default function GitHubStreakWidget({ username: propUsername }: GitHubStr
 
     const sortedContributions = allContributions
       .filter(day => (day.count || 0) > 0)
-      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      .sort((a, b) => b.date.localeCompare(a.date))
 
     if (sortedContributions.length === 0) return null
 
-    // En son contribution tarihi
-    const endDate = new Date(sortedContributions[0].date)
+    // Get today's date in UTC (GitHub uses UTC for dates)
+    const now = new Date()
+    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()))
+    const todayString = todayUTC.toISOString().slice(0, 10)
 
-    // Current streak'in başlangıç tarihini bul
+    // Get yesterday's date in UTC
+    const yesterdayUTC = new Date(todayUTC)
+    yesterdayUTC.setUTCDate(yesterdayUTC.getUTCDate() - 1)
+    const yesterdayString = yesterdayUTC.toISOString().slice(0, 10)
+
+    const mostRecentContribution = sortedContributions[0]
+    const mostRecentDate = mostRecentContribution.date
+
+    // Calculate days difference between today and most recent contribution
+    const toUtcMidnight = (dateString: string) => new Date(dateString + 'T00:00:00Z')
+    const daysDiffUtc = (a: string, b: string) => {
+      const dateA = toUtcMidnight(a)
+      const dateB = toUtcMidnight(b)
+      return Math.floor((dateA.getTime() - dateB.getTime()) / (1000 * 60 * 60 * 24))
+    }
+
+    const daysDiff = daysDiffUtc(todayString, mostRecentDate)
+
+    // Create a set of all contribution dates for quick lookup
+    const contributionDates = new Set(sortedContributions.map(day => day.date))
+
+    // Determine end date (most recent contribution date, or today if contributed today)
+    let endDate: Date
+    if (daysDiff === 0) {
+      endDate = new Date(todayUTC)
+    } else if (daysDiff === 1) {
+      endDate = new Date(yesterdayUTC)
+    } else {
+      // Streak is broken, but return the most recent contribution date
+      endDate = toUtcMidnight(mostRecentDate)
+    }
+
+    // Find start date by counting backwards for the current streak length
     let startDate = new Date(endDate)
-    let streakLength = 1
+    let checkDate = new Date(endDate)
+    const targetStreakLength = stats.streak.current
+    let daysCounted = 0
 
-    for (let i = 1; i < sortedContributions.length; i++) {
-      const currentDate = new Date(sortedContributions[i].date)
-      const daysDiff = Math.floor((endDate.getTime() - currentDate.getTime()) / (1000 * 60 * 60 * 24))
-
-      if (daysDiff === streakLength) {
-        startDate = new Date(currentDate)
-        streakLength++
+    // Count backwards to find the start of the streak
+    // We need to find targetStreakLength consecutive days
+    while (daysCounted < targetStreakLength) {
+      const checkDateString = checkDate.toISOString().slice(0, 10)
+      if (contributionDates.has(checkDateString)) {
+        startDate = new Date(checkDate)
+        daysCounted++
+        checkDate.setUTCDate(checkDate.getUTCDate() - 1)
       } else {
+        // If we haven't reached the target length, something is wrong
+        // But we'll return what we found
         break
       }
     }
@@ -626,7 +665,7 @@ export default function GitHubStreakWidget({ username: propUsername }: GitHubStr
   }
 
   const getLongestStreakDates = () => {
-    if (!stats?.contributions.weeks) return null
+    if (!stats?.contributions.weeks || !stats?.streak.longest || stats.streak.longest === 0) return null
 
     const allContributions: { date: string, count: number }[] = []
     stats.contributions.weeks.forEach((week) => {
@@ -640,30 +679,36 @@ export default function GitHubStreakWidget({ username: propUsername }: GitHubStr
 
     const sortedContributions = allContributions
       .filter(day => (day.count || 0) > 0)
-      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+      .sort((a, b) => a.date.localeCompare(b.date))
 
     if (sortedContributions.length === 0) return null
 
-    let longestStreakStart = new Date(sortedContributions[0].date)
-    let longestStreakEnd = new Date(sortedContributions[0].date)
-    let currentStreakStart = new Date(sortedContributions[0].date)
+    // Helper function to calculate day difference in UTC
+    const toUtcMidnight = (dateString: string) => new Date(dateString + 'T00:00:00Z')
+    const daysDiffUtc = (a: string, b: string) => {
+      const dateA = toUtcMidnight(a)
+      const dateB = toUtcMidnight(b)
+      return Math.floor((dateA.getTime() - dateB.getTime()) / (1000 * 60 * 60 * 24))
+    }
+
+    let longestStreakStart = toUtcMidnight(sortedContributions[0].date)
+    let longestStreakEnd = toUtcMidnight(sortedContributions[0].date)
+    let currentStreakStart = toUtcMidnight(sortedContributions[0].date)
     let currentStreakLength = 1
     let longestStreakLength = 1
 
     for (let i = 1; i < sortedContributions.length; i++) {
-      const prevDate = new Date(sortedContributions[i - 1].date)
-      const currentDate = new Date(sortedContributions[i].date)
-      const daysDiff = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24))
+      const dayDiff = daysDiffUtc(sortedContributions[i].date, sortedContributions[i - 1].date)
 
-      if (daysDiff === 1) {
+      if (dayDiff === 1) {
         currentStreakLength++
         if (currentStreakLength > longestStreakLength) {
           longestStreakLength = currentStreakLength
           longestStreakStart = new Date(currentStreakStart)
-          longestStreakEnd = new Date(currentDate)
+          longestStreakEnd = toUtcMidnight(sortedContributions[i].date)
         }
       } else {
-        currentStreakStart = new Date(currentDate)
+        currentStreakStart = toUtcMidnight(sortedContributions[i].date)
         currentStreakLength = 1
       }
     }
