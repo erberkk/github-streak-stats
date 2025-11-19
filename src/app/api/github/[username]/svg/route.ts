@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+
 // GitHub renk paleti - mevcut component'tekiyle aynı
 const COLORS = {
   background: '#0d1117',
@@ -144,7 +148,7 @@ function createSVGCard(x: number, y: number, width: number, height: number, stat
       </text>
 
       <!-- Etiket - mevcut component'teki pozisyon ve font ayarlarıyla aynı -->
-      <text x="${width/2}" y="${labelY - y}" text-anchor="middle" class="stat-label"
+      <text x="${width / 2}" y="${labelY - y}" text-anchor="middle" class="stat-label"
             fill="rgba(255,255,255,0.8)" font-family="Arial, sans-serif" font-size="13.6" font-weight="600"
             text-transform="uppercase" letter-spacing="0.1px">
         ${stat.label}
@@ -152,7 +156,7 @@ function createSVGCard(x: number, y: number, width: number, height: number, stat
 
       <!-- Date Range (eğer varsa) - mevcut component'tekiyle aynı -->
       ${stat.dateRange ? `
-        <text x="${width/2}" y="${labelY - y + 12}" text-anchor="middle" class="date-range"
+        <text x="${width / 2}" y="${labelY - y + 12}" text-anchor="middle" class="date-range"
               fill="rgba(255,255,255,0.6)" font-family="Arial, sans-serif" font-size="10.4" font-weight="400"
               letter-spacing="0.05px">
           ${stat.dateRange}
@@ -164,7 +168,7 @@ function createSVGCard(x: number, y: number, width: number, height: number, stat
 
 // Mevcut component'teki animasyonlu ikonları SVG'ye dönüştür
 function getAnimatedIcon(iconName: string, index: number): string {
-  switch(iconName) {
+  switch (iconName) {
     case 'flame':
       return `
         <g class="flame-icon-${index}">
@@ -183,28 +187,28 @@ function getAnimatedIcon(iconName: string, index: number): string {
 
           <!-- Spark particles - artırılmış ve çoklu seviye -->
           ${[
-            // Alt seviye (mevcut seviyede)
-            ...[0, 1, 2, 3, 4, 5, 6].map(i => ({
-              x: (i - 3) * 3 + 12,
-              y: 6,
-              delay: i * 0.4,
-              size: 1.25
-            })),
-            // Orta seviye (daha yukarıda)
-            ...[7, 8, 9].map(i => ({
-              x: ((i - 8) * 4) + 12,
-              y: -2,
-              delay: (i - 7) * 0.7,
-              size: 1.0
-            })),
-            // Üst seviye (en yukarıda, tutuşma efekti için)
-            ...[10, 11].map(i => ({
-              x: ((i - 10.5) * 6) + 12,
-              y: -8,
-              delay: (i - 10) * 1.1,
-              size: 0.8
-            }))
-          ].map((spark, i) => `
+          // Alt seviye (mevcut seviyede)
+          ...[0, 1, 2, 3, 4, 5, 6].map(i => ({
+            x: (i - 3) * 3 + 12,
+            y: 6,
+            delay: i * 0.4,
+            size: 1.25
+          })),
+          // Orta seviye (daha yukarıda)
+          ...[7, 8, 9].map(i => ({
+            x: ((i - 8) * 4) + 12,
+            y: -2,
+            delay: (i - 7) * 0.7,
+            size: 1.0
+          })),
+          // Üst seviye (en yukarıda, tutuşma efekti için)
+          ...[10, 11].map(i => ({
+            x: ((i - 10.5) * 6) + 12,
+            y: -8,
+            delay: (i - 10) * 1.1,
+            size: 0.8
+          }))
+        ].map((spark, i) => `
             <circle cx="${spark.x}" cy="${spark.y}" r="${spark.size}" fill="#ff6b35"
                     class="spark-${index}-${i}"
                     opacity="0">
@@ -255,17 +259,17 @@ function getAnimatedIcon(iconName: string, index: number): string {
 
           <!-- Star sparkle efektleri - çok küçük yıldızlar (yıldızın etrafına rastgele dağıtılmış) -->
           ${[
-            { delay: 0 }, { delay: 0.5 }, { delay: 1 }, { delay: 1.5 },
-            { delay: 2 }, { delay: 2.5 }, { delay: 0.8 }, { delay: 1.2 }
-          ].map((spark, i) => {
-            // Yıldızın merkezinden rastgele konumlar (merkez yaklaşık 12,12)
-            const centerX = 12;
-            const centerY = 12;
-            const angle = (Math.PI * 0.75) + ((i / 8) * (Math.PI * 1.25)); // 135°-315° arası sabit konumlar
-            const distance = 6 + ((i % 3) * 3) + (Math.sin(i * 0.5) * 2); // 6-14 arası yarıçap (daha uzak)
-            const x = centerX + Math.cos(angle) * distance;
-            const y = centerY + Math.sin(angle) * distance;
-            return `
+          { delay: 0 }, { delay: 0.5 }, { delay: 1 }, { delay: 1.5 },
+          { delay: 2 }, { delay: 2.5 }, { delay: 0.8 }, { delay: 1.2 }
+        ].map((spark, i) => {
+          // Yıldızın merkezinden rastgele konumlar (merkez yaklaşık 12,12)
+          const centerX = 12;
+          const centerY = 12;
+          const angle = (Math.PI * 0.75) + ((i / 8) * (Math.PI * 1.25)); // 135°-315° arası sabit konumlar
+          const distance = 6 + ((i % 3) * 3) + (Math.sin(i * 0.5) * 2); // 6-14 arası yarıçap (daha uzak)
+          const x = centerX + Math.cos(angle) * distance;
+          const y = centerY + Math.sin(angle) * distance;
+          return `
             <circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="0.8"
                     fill="#ffffff" class="star-spark-${index}-${i}">
               <animate attributeName="r" values="0.8;1.4;0.8" dur="2s"
@@ -333,18 +337,18 @@ function getAnimatedIcon(iconName: string, index: number): string {
 
           <!-- Pulsing dots - çok küçük ve çok sayıda (alev spark gibi) -->
           ${[
-            // Ana noktalar (küçük)
-            { x: 7, y: 16, r: 0.8 }, { x: 17, y: 16, r: 0.8 }, { x: 12, y: 13, r: 0.8 },
-            { x: 9, y: 19, r: 0.8 }, { x: 15, y: 19, r: 0.8 }, { x: 5, y: 14, r: 0.8 },
-            { x: 19, y: 14, r: 0.8 },
-            // Ek küçük noktalar
-            { x: 10, y: 15, r: 0.6 }, { x: 14, y: 15, r: 0.6 }, { x: 8, y: 17, r: 0.6 },
-            { x: 16, y: 17, r: 0.6 }, { x: 11, y: 18, r: 0.6 }, { x: 13, y: 18, r: 0.6 },
-            { x: 6, y: 16, r: 0.6 }, { x: 18, y: 16, r: 0.6 }, { x: 12, y: 16, r: 0.6 },
-            // Çok küçük noktalar (alev spark etkisi için)
-            { x: 8.5, y: 14.5, r: 0.4 }, { x: 15.5, y: 14.5, r: 0.4 }, { x: 11.5, y: 17.5, r: 0.4 },
-            { x: 12.5, y: 17.5, r: 0.4 }, { x: 9.5, y: 16.5, r: 0.4 }, { x: 14.5, y: 16.5, r: 0.4 }
-          ].map((dot, i) => `
+          // Ana noktalar (küçük)
+          { x: 7, y: 16, r: 0.8 }, { x: 17, y: 16, r: 0.8 }, { x: 12, y: 13, r: 0.8 },
+          { x: 9, y: 19, r: 0.8 }, { x: 15, y: 19, r: 0.8 }, { x: 5, y: 14, r: 0.8 },
+          { x: 19, y: 14, r: 0.8 },
+          // Ek küçük noktalar
+          { x: 10, y: 15, r: 0.6 }, { x: 14, y: 15, r: 0.6 }, { x: 8, y: 17, r: 0.6 },
+          { x: 16, y: 17, r: 0.6 }, { x: 11, y: 18, r: 0.6 }, { x: 13, y: 18, r: 0.6 },
+          { x: 6, y: 16, r: 0.6 }, { x: 18, y: 16, r: 0.6 }, { x: 12, y: 16, r: 0.6 },
+          // Çok küçük noktalar (alev spark etkisi için)
+          { x: 8.5, y: 14.5, r: 0.4 }, { x: 15.5, y: 14.5, r: 0.4 }, { x: 11.5, y: 17.5, r: 0.4 },
+          { x: 12.5, y: 17.5, r: 0.4 }, { x: 9.5, y: 16.5, r: 0.4 }, { x: 14.5, y: 16.5, r: 0.4 }
+        ].map((dot, i) => `
             <circle cx="${dot.x}" cy="${dot.y}" r="${dot.r}"
                     fill="#22c55e" class="calendar-dot-${index}-${i}">
               <animate attributeName="r" values="${dot.r};${dot.r * 1.5};${dot.r}" dur="2.5s"
@@ -820,7 +824,7 @@ export async function GET(
     }
 
     // Mevcut API'den veriyi al
-    const apiResponse = await fetch(`${request.nextUrl.origin}/api/github/${username}`)
+    const apiResponse = await fetch(`${request.nextUrl.origin}/api/github/${username}`, { cache: 'no-store' })
     if (!apiResponse.ok) {
       throw new Error('Failed to fetch GitHub stats')
     }
@@ -834,7 +838,10 @@ export async function GET(
     return new NextResponse(svg, {
       headers: {
         'Content-Type': 'image/svg+xml',
-        'Cache-Control': 'public, max-age=300', // 5 dakika cache
+        'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate, max-age=0',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+        'Surrogate-Control': 'no-store',
       },
     })
   } catch (error) {
