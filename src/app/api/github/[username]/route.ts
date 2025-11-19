@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
+
 interface GitHubUser {
   login: string
   id: number
@@ -50,7 +54,7 @@ interface GitHubStats {
 }
 
 async function fetchGitHubUser(username: string): Promise<GitHubUser> {
-  const response = await fetch(`https://api.github.com/users/${username}`)
+  const response = await fetch(`https://api.github.com/users/${username}`, { cache: 'no-store' })
   if (!response.ok) {
     throw new Error(`Failed to fetch user: ${response.status}`)
   }
@@ -60,7 +64,7 @@ async function fetchGitHubUser(username: string): Promise<GitHubUser> {
 async function fetchContributions(username: string): Promise<ContributionsWithUser> {
   try {
     // First get user's account creation year
-    const userResponse = await fetch(`https://api.github.com/users/${username}`)
+    const userResponse = await fetch(`https://api.github.com/users/${username}`, { cache: 'no-store' })
     if (!userResponse.ok) {
       throw new Error(`Failed to fetch user: ${userResponse.status}`)
     }
@@ -118,7 +122,8 @@ async function fetchContributions(username: string): Promise<ContributionsWithUs
             from: fromDate.toISOString(),
             to: toDate.toISOString()
           }
-        })
+        }),
+        cache: 'no-store'
       })
 
       if (response.ok) {
@@ -176,91 +181,92 @@ async function fetchContributions(username: string): Promise<ContributionsWithUs
 }
 
 async function fetchContributionsFromHtml(username: string): Promise<ContributionData> {
-    try {
-      // Try Events API first (most accurate for recent activity)
-      const eventsData = await fetchFromEventsAPI(username)
-      if (eventsData.totalContributions > 0) {
-        return eventsData
-      }
-    } catch (error) {
-
+  try {
+    // Try Events API first (most accurate for recent activity)
+    const eventsData = await fetchFromEventsAPI(username)
+    if (eventsData.totalContributions > 0) {
+      return eventsData
     }
+  } catch (error) {
 
-    try {
-      // Try GraphQL API
-      const graphqlData = await fetchFromGraphQL(username)
-      if (graphqlData.totalContributions > 0) {
-        return graphqlData
-      }
-    } catch (error) {
-
-    }
-
-    // Final fallback to HTML parsing
-    return await fetchFromContributionsPage(username)
   }
 
-  async function fetchFromEventsAPI(username: string): Promise<ContributionData> {
-    const eventsHeaders: Record<string, string> = {
-      'User-Agent': 'GitHub-Streak-Widget/1.0'
+  try {
+    // Try GraphQL API
+    const graphqlData = await fetchFromGraphQL(username)
+    if (graphqlData.totalContributions > 0) {
+      return graphqlData
     }
+  } catch (error) {
 
-    if (process.env.GITHUB_TOKEN) {
-      eventsHeaders['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`
-    }
+  }
 
-    // Get multiple pages of events to get more data
-    const allEvents: any[] = []
-    const maxPages = 5 // Get last 500 events
+  // Final fallback to HTML parsing
+  return await fetchFromContributionsPage(username)
+}
 
-    for (let page = 1; page <= maxPages; page++) {
-      const eventsResponse = await fetch(`https://api.github.com/users/${username}/events?per_page=100&page=${page}`, {
-        headers: eventsHeaders
-      })
+async function fetchFromEventsAPI(username: string): Promise<ContributionData> {
+  const eventsHeaders: Record<string, string> = {
+    'User-Agent': 'GitHub-Streak-Widget/1.0'
+  }
 
-      if (!eventsResponse.ok) {
-        break
-      }
+  if (process.env.GITHUB_TOKEN) {
+    eventsHeaders['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`
+  }
 
-      const events = await eventsResponse.json()
-      if (events.length === 0) {
-        break
-      }
+  // Get multiple pages of events to get more data
+  const allEvents: any[] = []
+  const maxPages = 5 // Get last 500 events
 
-      allEvents.push(...events)
-    }
-
-
-
-    // Group events by date and count contributions
-    const contributionsMap = new Map<string, number>()
-
-    allEvents.forEach((event: any) => {
-      if (event.type === 'PushEvent' || event.type === 'PullRequestEvent' || event.type === 'IssuesEvent') {
-        const date = event.created_at.split('T')[0]
-        contributionsMap.set(date, (contributionsMap.get(date) || 0) + 1)
-      }
+  for (let page = 1; page <= maxPages; page++) {
+    const eventsResponse = await fetch(`https://api.github.com/users/${username}/events?per_page=100&page=${page}`, {
+      headers: eventsHeaders,
+      cache: 'no-store'
     })
 
-    const contributions: ContributionDay[] = Array.from(contributionsMap.entries())
-      .map(([date, count]) => ({
-        date,
-        count
-      }))
-      .sort((a, b) => a.date.localeCompare(b.date))
-
-
-
-    return {
-      totalContributions: contributions.reduce((sum, day) => sum + day.count, 0),
-      weeks: [{
-        contributionDays: contributions
-      }]
+    if (!eventsResponse.ok) {
+      break
     }
+
+    const events = await eventsResponse.json()
+    if (events.length === 0) {
+      break
+    }
+
+    allEvents.push(...events)
   }
 
-  async function fetchFromGraphQL(username: string): Promise<ContributionData> {
-    const query = `
+
+
+  // Group events by date and count contributions
+  const contributionsMap = new Map<string, number>()
+
+  allEvents.forEach((event: any) => {
+    if (event.type === 'PushEvent' || event.type === 'PullRequestEvent' || event.type === 'IssuesEvent') {
+      const date = event.created_at.split('T')[0]
+      contributionsMap.set(date, (contributionsMap.get(date) || 0) + 1)
+    }
+  })
+
+  const contributions: ContributionDay[] = Array.from(contributionsMap.entries())
+    .map(([date, count]) => ({
+      date,
+      count
+    }))
+    .sort((a, b) => a.date.localeCompare(b.date))
+
+
+
+  return {
+    totalContributions: contributions.reduce((sum, day) => sum + day.count, 0),
+    weeks: [{
+      contributionDays: contributions
+    }]
+  }
+}
+
+async function fetchFromGraphQL(username: string): Promise<ContributionData> {
+  const query = `
       query($username: String!) {
         user(login: $username) {
           contributionsCollection {
@@ -278,79 +284,81 @@ async function fetchContributionsFromHtml(username: string): Promise<Contributio
       }
     `
 
-    const headers: Record<string, string> = {
-      'Content-Type': 'application/json',
-      'User-Agent': 'GitHub-Streak-Widget/1.0'
-    }
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    'User-Agent': 'GitHub-Streak-Widget/1.0'
+  }
 
-    if (process.env.GITHUB_TOKEN) {
-      headers['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`
-    }
+  if (process.env.GITHUB_TOKEN) {
+    headers['Authorization'] = `Bearer ${process.env.GITHUB_TOKEN}`
+  }
 
-    const response = await fetch('https://api.github.com/graphql', {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        query,
-        variables: { username }
-      })
-    })
+  const response = await fetch('https://api.github.com/graphql', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      query,
+      variables: { username }
+    }),
+    cache: 'no-store'
+  })
 
-    if (response.ok) {
-      const data = await response.json()
+  if (response.ok) {
+    const data = await response.json()
 
-      if (data.data?.user?.contributionsCollection?.contributionCalendar) {
-        const calendar = data.data.user.contributionsCollection.contributionCalendar
+    if (data.data?.user?.contributionsCollection?.contributionCalendar) {
+      const calendar = data.data.user.contributionsCollection.contributionCalendar
 
-        return {
-          totalContributions: calendar.totalContributions,
-          weeks: calendar.weeks.map((week: any) => ({
-            contributionDays: week.contributionDays.map((day: any) => ({
-              date: day.date,
-              count: day.contributionCount
-            }))
+      return {
+        totalContributions: calendar.totalContributions,
+        weeks: calendar.weeks.map((week: any) => ({
+          contributionDays: week.contributionDays.map((day: any) => ({
+            date: day.date,
+            count: day.contributionCount
           }))
-        }
+        }))
       }
     }
-
-    throw new Error('GraphQL query failed')
   }
 
-  async function fetchFromContributionsPage(username: string): Promise<ContributionData> {
-    const response = await fetch(`https://github.com/users/${username}/contributions`, {
-      headers: {
-        'User-Agent': 'GitHub-Streak-Widget/1.0'
-      }
+  throw new Error('GraphQL query failed')
+}
+
+async function fetchFromContributionsPage(username: string): Promise<ContributionData> {
+  const response = await fetch(`https://github.com/users/${username}/contributions`, {
+    headers: {
+      'User-Agent': 'GitHub-Streak-Widget/1.0'
+    },
+    cache: 'no-store'
+  })
+
+  if (!response.ok) {
+    throw new Error(`Failed to fetch contributions: ${response.status}`)
+  }
+
+  const data = await response.text()
+
+  // Parse the SVG response to extract contribution data
+  const contributionRegex = /data-date="([^"]+)" data-count="([^"]+)"/g
+  const contributions: ContributionDay[] = []
+  let match
+
+  while ((match = contributionRegex.exec(data)) !== null) {
+    contributions.push({
+      date: match[1],
+      count: parseInt(match[2], 10)
     })
-
-    if (!response.ok) {
-      throw new Error(`Failed to fetch contributions: ${response.status}`)
-    }
-
-    const data = await response.text()
-
-    // Parse the SVG response to extract contribution data
-    const contributionRegex = /data-date="([^"]+)" data-count="([^"]+)"/g
-    const contributions: ContributionDay[] = []
-    let match
-
-    while ((match = contributionRegex.exec(data)) !== null) {
-      contributions.push({
-        date: match[1],
-        count: parseInt(match[2], 10)
-      })
-    }
-
-
-
-    return {
-      totalContributions: contributions.reduce((sum, day) => sum + day.count, 0),
-      weeks: [{
-        contributionDays: contributions
-      }]
-    }
   }
+
+
+
+  return {
+    totalContributions: contributions.reduce((sum, day) => sum + day.count, 0),
+    weeks: [{
+      contributionDays: contributions
+    }]
+  }
+}
 
 function toUtcMidnight(dateString: string): Date {
   return new Date(dateString + 'T00:00:00Z')
