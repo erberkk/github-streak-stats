@@ -3,7 +3,7 @@ import './globals.css'
 
 export const metadata: Metadata = {
   title: 'GitHub Streak Stats',
-  description: 'Custom GitHub streak statistics widget',
+  description: 'A clean, fast GitHub contribution streak card for your profile README',
 }
 
 export default function RootLayout({

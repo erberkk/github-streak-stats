@@ -2,15 +2,27 @@
   "functions": {
     "src/app/api/github/[username]/route.ts": {
       "maxDuration": 10
+    },
+    "src/app/api/github/[username]/svg/route.ts": {
+      "maxDuration": 10
     }
   },
   "headers": [
     {
       "source": "/api/(.*)",
       "headers": [
-        { "key": "Access-Control-Allow-Origin", "value": "*" },
-        { "key": "Access-Control-Allow-Methods", "value": "GET,POST,OPTIONS" },
-        { "key": "Access-Control-Allow-Headers", "value": "Content-Type" }
+        {
+          "key": "Access-Control-Allow-Origin",
+          "value": "*"
+        },
+        {
+          "key": "Access-Control-Allow-Methods",
+          "value": "GET,OPTIONS"
+        },
+        {
+          "key": "Access-Control-Allow-Headers",
+          "value": "Content-Type"
+        }
       ]
     }
   ],

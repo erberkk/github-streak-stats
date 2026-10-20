@@ -1,48 +1,45 @@
-# 🎨 GitHub Streak Stats Widget
+# GitHub Streak Stats
 
-A modern, animated GitHub statistics widget. Perfect for your GitHub README!
+A clean, fast contribution streak card for your GitHub profile README. It follows your light/dark mode automatically.
 
-![Preview](https://github-streak-stats-gray.vercel.app/api/github/erberkk/svg)
+[![GitHub Streak](https://github-streak-stats-gray.vercel.app/api/github/erberkk/svg)](https://github-streak-stats-gray.vercel.app/user/erberkk)
 
-## 🚀 How to Use
+## Usage
 
-There are two ways to use the widget:
-
-### 1. 🎯 Direct SVG Image
-
-Use it directly in your GitHub README:
+Add this to your profile README (replace `erberkk` with your username):
 
 ```markdown
-<!-- GitHub Streak Widget SVG -->
-<img src="https://github-streak-stats-gray.vercel.app/api/github/erberkk/svg" alt="GitHub Streak Stats" width="1000" height="320" />
+[![GitHub Streak](https://github-streak-stats-gray.vercel.app/api/github/erberkk/svg)](https://github-streak-stats-gray.vercel.app/user/erberkk)
 ```
 
-### 2. 🌐 Interactive Page
+Or open the [generator](https://github-streak-stats-gray.vercel.app) to preview and copy the snippet.
 
-For a full interactive page:
+### Options
 
-```markdown
-<!-- İnteraktif GitHub Streak Widget -->
-<a href="https://github-streak-stats-gray.vercel.app/user/erberkk">
-  <img src="https://github-streak-stats-gray.vercel.app/api/github/erberkk/svg" alt="GitHub Streak Stats" width="1000" height="320" />
-</a>
-```
+| Parameter | Values | Default |
+| --- | --- | --- |
+| `theme` | `auto`, `dark`, `light` | `auto` (follows the viewer's color scheme) |
 
-### 3. 📊 API Usage
+Example: `https://github-streak-stats-gray.vercel.app/api/github/erberkk/svg?theme=dark`
 
-To get JSON data:
+### JSON API
 
 ```bash
-# SVG Görsel
-curl https://github-streak-stats-gray.vercel.app/api/github/erberkk/svg
-
-# JSON Veri
 curl https://github-streak-stats-gray.vercel.app/api/github/erberkk
 ```
 
-## 📊 What It Shows
+## What it shows
 
-- 🔥 **Current Streak** - Consecutive contribution days
-- 🔥 **Longest Streak** - Longest consecutive streak
-- 📊 **Total Contributions** - All-time contribution count
-- 📅 **Active Days** - Total days with contributions
+- **Total contributions** since the account was created
+- **Current streak**, with progress toward your longest streak
+- **Longest streak** and its date range
+- **Last 30 days** of activity and total active days
+
+## Self-hosting
+
+1. Deploy to Vercel.
+2. Set `GITHUB_TOKEN` (a personal access token, no scopes needed for public data; add `read:user` to include private contributions you've made visible on your profile).
+
+Without a token the service falls back to parsing the public contribution calendar, which is slower.
+
+Responses are cached on the CDN for 10 minutes and served stale while refreshing, so the card loads instantly on GitHub instead of timing out.

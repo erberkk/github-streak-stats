@@ -20,7 +20,14 @@
       {
         "name": "next"
       }
-    ]
+    ],
+    "target": "es2020",
+    "baseUrl": ".",
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ]
+    }
   },
   "include": [
     "next-env.d.ts",
