@@ -103,9 +103,14 @@ function streakRing(cx: number, stats: GitHubStats): string {
     <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="url(#accent)" stroke-width="6" stroke-linecap="round"
       stroke-dasharray="${circumference.toFixed(2)}" stroke-dashoffset="${offset.toFixed(2)}"
       transform="rotate(-90 ${cx} ${cy})" class="ring" style="--from:${circumference.toFixed(2)};--to:${offset.toFixed(2)}"/>
+    <circle cx="${cx}" cy="${cy - r}" r="11" fill="none" stroke="url(#accent)" stroke-width="1.5" class="ping"/>
     <circle cx="${cx}" cy="${cy - r}" r="12" fill="var(--bg)"/>
-    <g transform="translate(${cx - 8} ${cy - r - 8}) scale(0.6667)" class="flame">
-      <path d="${flame}" fill="url(#accent)" stroke="url(#accent)" stroke-width="2" stroke-linejoin="round"/>
+    <!-- Outer group only positions the 24x24 icon. The inner group animates. Keeping them apart matters:
+         transform-box/transform-origin on the positioned group would re-anchor translate+scale and push the icon off-centre. -->
+    <g transform="translate(${cx - 8} ${cy - r - 8}) scale(0.6667)">
+      <g class="flame">
+        <path d="${flame}" fill="url(#accent)" stroke="url(#accent)" stroke-width="2" stroke-linejoin="round"/>
+      </g>
     </g>
     <text x="${cx}" y="${cy + 9}" text-anchor="middle" class="ring-value">${formatNumber(current)}</text>
     <text x="${cx}" y="164" text-anchor="middle" class="label accent">Current Streak</text>
@@ -132,7 +137,7 @@ function recentBars(stats: GitHubStats, x0: number, x1: number, y: number, h: nu
       const bx = x0 + i * slot + (slot - barW) / 2
       const fill = c === 0 ? 'var(--track)' : 'url(#accent-v)'
       const opacity = c === 0 ? 1 : (0.45 + 0.55 * (c / max)).toFixed(2)
-      return `<rect x="${bx.toFixed(1)}" y="${(y + h - bh).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5" fill="${fill}" opacity="${opacity}" class="bar" style="animation-delay:${300 + i * 12}ms"><title>${c} contribution${c === 1 ? '' : 's'}</title></rect>`
+      return `<rect x="${bx.toFixed(1)}" y="${(y + h - bh).toFixed(1)}" width="${barW.toFixed(1)}" height="${bh.toFixed(1)}" rx="1.5" fill="${fill}" opacity="${opacity}" class="bar" style="--d:${300 + i * 12}ms;--w:${i * 70}ms"><title>${c} contribution${c === 1 ? '' : 's'}</title></rect>`
     })
     .join('')
 }
@@ -160,13 +165,17 @@ export function renderCard(stats: GitHubStats, theme: Theme): string {
     .pill{font-size:11.5px;font-weight:500;fill:var(--muted)}
     .fade{animation:fade .6s ease-out both}
     .ring{animation:draw 1.1s cubic-bezier(.3,.7,.3,1) .2s both}
-    .bar{transform-box:fill-box;transform-origin:bottom;animation:grow .5s ease-out both}
-    .flame{transform-box:fill-box;transform-origin:center bottom}
-    .flame path{animation:flicker 2.4s ease-in-out infinite;transform-box:fill-box;transform-origin:center bottom}
+    .bar{transform-box:fill-box;transform-origin:bottom;animation:grow .5s ease-out var(--d) both,sweep 7s ease-in-out calc(2.6s + var(--w)) infinite}
+    .flame{transform-box:fill-box;transform-origin:center bottom;animation:flicker 1.7s ease-in-out infinite}
+    .ping{transform-box:fill-box;transform-origin:center;animation:ping 2.6s ease-out 1.2s infinite;opacity:0}
+    .live{animation:pulse 2.2s ease-in-out infinite}
     @keyframes fade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
     @keyframes draw{from{stroke-dashoffset:var(--from)}to{stroke-dashoffset:var(--to)}}
     @keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
-    @keyframes flicker{0%,100%{transform:scale(1)}50%{transform:scale(1.06,0.96)}}
+    @keyframes flicker{0%,100%{transform:scale(1,1) rotate(0)}22%{transform:scale(.94,1.12) rotate(-3deg)}48%{transform:scale(1.05,.97) rotate(1.5deg)}74%{transform:scale(.96,1.09) rotate(2.5deg)}}
+    @keyframes ping{0%{transform:scale(1);opacity:.65}100%{transform:scale(2.3);opacity:0}}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.35}}
+    @keyframes sweep{0%,22%,100%{fill-opacity:1}10%{fill-opacity:.4}}
     @media (prefers-reduced-motion: reduce){*{animation:none!important}}
   </style>
   <defs>
@@ -185,7 +194,7 @@ export function renderCard(stats: GitHubStats, theme: Theme): string {
   <g class="fade">
     <text x="${PAD}" y="37" class="title">@${login}<tspan class="dim"> · contribution streak</tspan></text>
     <rect x="${pillX.toFixed(1)}" y="18" width="${pillW.toFixed(1)}" height="26" rx="13" style="fill:none;stroke:var(--border)"/>
-    <circle cx="${(pillX + 15).toFixed(1)}" cy="31" r="4" style="fill:${st.color}"/>
+    <circle cx="${(pillX + 15).toFixed(1)}" cy="31" r="4" style="fill:${st.color}" class="live"/>
     <text x="${(pillX + 25).toFixed(1)}" y="35" class="pill">${st.text}</text>
   </g>
   <line x1="${PAD}" y1="58" x2="${WIDTH - PAD}" y2="58" style="stroke:var(--border)"/>
